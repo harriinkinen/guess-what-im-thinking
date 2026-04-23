@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arvaa, mitä ajattelen!</title>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --orange: #F5A623;
+    --orange-dark: #d4891a;
+    --green: #5CB85C;
+    --green-dark: #449d44;
+    --bg: #1a1a2e;
+    --bg2: #16213e;
+    --bg3: #0f3460;
+    --text: #f0f0f0;
+    --text-muted: #aaa;
+    --card-radius: 18px;
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Stars background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 50% 70%, rgba(255,255,255,0.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.15) 0%, transparent 100%),
+      radial-gradient(2px 2px at 70% 50%, rgba(255,255,255,0.1) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .screen {
+    display: none;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ===================== START SCREEN ===================== */
+  #startScreen {
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .game-logo {
+    margin-bottom: 40px;
+  }
+
+  .game-logo h1 {
+    font-family: 'Righteous', cursive;
+    font-size: clamp(2rem, 8vw, 4rem);
+    line-height: 1.1;
+    background: linear-gradient(135deg, var(--orange), #ffdd57, var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 2px 8px rgba(245,166,35,0.4));
+  }
+
+  .game-logo p {
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin-top: 8px;
+  }
+
+  .mode-cards {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 600px;
+  }
+
+  .mode-card {
+    background: var(--bg2);
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: var(--card-radius);
+    padding: 32px 28px;
+    flex: 1;
+    min-width: 220px;
+    max-width: 260px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mode-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .mode-card.host::before { background: radial-gradient(circle at 50% 0%, rgba(245,166,35,0.15), transparent 70%); }
+  .mode-card.player::before { background: radial-gradient(circle at 50% 0%, rgba(92,184,92,0.15), transparent 70%); }
+
+  .mode-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.2); }
+  .mode-card:hover::before { opacity: 1; }
+
+  .mode-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+  }
+
+  .mode-card h2 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+  }
+
+  .mode-card.host h2 { color: var(--orange); }
+  .mode-card.player h2 { color: var(--green); }
+
+  .mode-card p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ===================== HOST SCREEN ===================== */
+  #hostScreen {
+    padding: 0;
+  }
+
+  .host-header {
+    background: var(--bg2);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .host-header h1 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.4rem;
+    background: linear-gradient(135deg, var(--orange), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .host-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    height: calc(100vh - 65px);
+  }
+
+  .host-main {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+  }
+
+  .cards-display {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .game-card {
+    width: 220px;
+    height: 150px;
+    border-radius: var(--card-radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+  }
+
+  .game-card.orange {
+    background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+    border: 3px solid rgba(255,255,255,0.3);
+  }
+
+  .game-card.green {
+    background: linear-gradient(135deg, var(--green), var(--green-dark));
+    border: 3px solid rgba(255,255,255,0.3);
+  }
+
+  .game-card .card-label {
+    font-size: 0.65rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin-bottom: 8px;
+  }
+
+  .game-card .card-word {
+    font-family: 'Righteous', cursive;
+    font-size: 1.6rem;
+    text-align: center;
+    padding: 0 12px;
+    line-height: 1.2;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .card-plus {
+    font-size: 2.5rem;
+    color: var(--text-muted);
+    font-weight: 900;
+  }
+
+  .host-status {
+    font-size: 1rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .host-status span {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .answers-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    max-width: 600px;
+  }
+
+  .answer-chip {
+    background: var(--bg2);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 40px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: 700;
+    transition: all 0.4s ease;
+    position: relative;
+  }
+
+  .answer-chip.waiting {
+    color: var(--text-muted);
+  }
+
+  .answer-chip.revealed {
+    animation: popIn 0.4s ease forwards;
+  }
+
+  .answer-chip.match {
+    background: linear-gradient(135deg, rgba(245,166,35,0.3), rgba(92,184,92,0.3));
+    border-color: var(--orange);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(245,166,35,0.3);
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    70% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .answer-player-name {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .host-controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ===================== HOST SIDEBAR ===================== */
+  .host-sidebar {
+    background: var(--bg2);
+    border-left: 1px solid rgba(255,255,255,0.06);
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .sidebar-title {
+    font-family: 'Righteous', cursive;
+    font-size: 1rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .player-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+  }
+
+  .player-row.submitted {
+    border-left: 3px solid var(--green);
+  }
+
+  .player-name-text {
+    font-weight: 700;
+  }
+
+  .player-score {
+    font-family: 'Righteous', cursive;
+    font-size: 1.1rem;
+    color: var(--orange);
+  }
+
+  .player-submitted-icon {
+    color: var(--green);
+    font-size: 1rem;
+  }
+
+  /* ===================== BUTTONS ===================== */
+  .btn {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900;
+    font-size: 1rem;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+  }
+
+  .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+  .btn:active { transform: translateY(0); }
+
+  .btn-orange {
+    background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(245,166,35,0.4);
+  }
+
+  .btn-green {
+    background: linear-gradient(135deg, var(--green), var(--green-dark));
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(92,184,92,0.4);
+  }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ===================== PLAYER SCREEN ===================== */
+  #playerScreen {
+    align-items: center;
+    justify-content: flex-start;
+    padding: 24px 20px;
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .player-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+
+  .player-header h1 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.1rem;
+    background: linear-gradient(135deg, var(--orange), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .player-score-badge {
+    background: var(--bg2);
+    border: 2px solid var(--orange);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-family: 'Righteous', cursive;
+    font-size: 1rem;
+    color: var(--orange);
+  }
+
+  .player-cards {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .player-cards .game-card {
+    width: 100%;
+    height: 100px;
+  }
+
+  .player-cards .game-card .card-word {
+    font-size: 1.4rem;
+  }
+
+  .input-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .input-area input {
+    width: 100%;
+    background: var(--bg2);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-area input:focus {
+    border-color: var(--orange);
+  }
+
+  .input-area input::placeholder {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 1rem;
+  }
+
+  .waiting-message {
+    width: 100%;
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .waiting-message .big-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+  }
+
+  .waiting-message h2 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+  }
+
+  .waiting-message p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  /* ===================== NAME ENTRY ===================== */
+  #nameScreen {
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .name-form {
+    background: var(--bg2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .name-form h2 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.6rem;
+    background: linear-gradient(135deg, var(--orange), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .name-form p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .name-form input {
+    width: 100%;
+    background: var(--bg3);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .name-form input:focus {
+    border-color: var(--green);
+  }
+
+  /* ===================== RESULTS ===================== */
+  .round-results {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .result-row {
+    background: var(--bg2);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideIn 0.3s ease forwards;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  @keyframes slideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-row.match {
+    background: linear-gradient(135deg, rgba(245,166,35,0.2), rgba(92,184,92,0.2));
+    border: 1px solid rgba(245,166,35,0.4);
+  }
+
+  .result-answer {
+    font-size: 1.1rem;
+    font-weight: 900;
+  }
+
+  .result-names {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .result-badge {
+    font-family: 'Righteous', cursive;
+    font-size: 0.9rem;
+    color: var(--orange);
+  }
+
+  /* ===================== WINNER SCREEN ===================== */
+  #winnerScreen {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .winner-content {
+    max-width: 480px;
+  }
+
+  .winner-emoji {
+    font-size: 5rem;
+    margin-bottom: 24px;
+    animation: bounce 1s ease infinite;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .winner-content h1 {
+    font-family: 'Righteous', cursive;
+    font-size: 2.5rem;
+    background: linear-gradient(135deg, var(--orange), #ffdd57);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .winner-name {
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+  }
+
+  .final-scores {
+    background: var(--bg2);
+    border-radius: var(--card-radius);
+    padding: 24px;
+    margin-bottom: 32px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .final-score-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .final-score-row:last-child { border-bottom: none; }
+
+  /* ===================== NOTIFICATION ===================== */
+  .notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    background: var(--bg2);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 14px 24px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .notification.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ===================== FIREBASE CONFIG MODAL ===================== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.active {
+    display: flex;
+  }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 36px;
+    max-width: 500px;
+    width: 100%;
+  }
+
+  .modal h2 {
+    font-family: 'Righteous', cursive;
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+    color: var(--orange);
+  }
+
+  .modal p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .modal input {
+    width: 100%;
+    background: var(--bg3);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    outline: none;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+  }
+
+  .modal input:focus { border-color: var(--orange); }
+
+  .modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .setup-steps {
+    background: var(--bg3);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: var(--text-muted);
+  }
+
+  .setup-steps strong { color: var(--text); }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .host-body {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto;
+      height: auto;
+    }
+    .host-sidebar {
+      border-left: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      max-height: 280px;
+    }
+    .game-card { width: 160px; height: 110px; }
+    .game-card .card-word { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NOTIFICATION -->
+<div class="notification" id="notification"></div>
+
+<!-- FIREBASE CONFIG MODAL -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h2>🔥 Firebase-asetukset</h2>
+    <div class="setup-steps">
+      <strong>Näin saat Firebase-tunnukset:</strong><br>
+      1. Mene <strong>console.firebase.google.com</strong><br>
+      2. Luo uusi projekti<br>
+      3. Lisää <strong>Realtime Database</strong> (aloita testausmoodissa)<br>
+      4. Projektin asetukset → Lisää web-app<br>
+      5. Kopioi tunnukset alta
+    </div>
+    <p>Syötä Firebase-projektisi tiedot. Ne tallennetaan vain selaimeen.</p>
+    <input type="text" id="cfg_apiKey" placeholder="apiKey" />
+    <input type="text" id="cfg_authDomain" placeholder="authDomain (projekti.firebaseapp.com)" />
+    <input type="text" id="cfg_databaseURL" placeholder="databaseURL (https://projekti-default-rtdb.firebaseio.com)" />
+    <input type="text" id="cfg_projectId" placeholder="projectId" />
+    <div class="modal-buttons">
+      <button class="btn btn-orange" onclick="saveConfig()">Tallenna ja yhdistä</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+    </div>
+  </div>
+</div>
+
+<!-- START SCREEN -->
+<div class="screen active" id="startScreen">
+  <div class="game-logo">
+    <h1>Arvaa, mitä<br>ajattelen!</h1>
+    <p>Seurapeli juhliin</p>
+  </div>
+  <div class="mode-cards">
+    <div class="mode-card host" onclick="enterHost()">
+      <div class="mode-icon">📺</div>
+      <h2>Host-näkymä</h2>
+      <p>Isolla ruudulla. Hallinnoi peliä ja paljasta vastaukset.</p>
+    </div>
+    <div class="mode-card player" onclick="enterPlayer()">
+      <div class="mode-icon">📱</div>
+      <h2>Pelaaja</h2>
+      <p>Omalla puhelimella. Kirjoita vastauksesi joka kierroksella.</p>
+    </div>
+  </div>
+  <p style="margin-top: 32px; color: var(--text-muted); font-size: 0.85rem;">
+    ⚙️ <span style="cursor:pointer; text-decoration: underline;" onclick="openModal()">Firebase-asetukset</span>
+  </p>
+</div>
+
+<!-- NAME SCREEN -->
+<div class="screen" id="nameScreen">
+  <div class="name-form">
+    <div style="font-size:2rem">🎮</div>
+    <h2>Mikä on nimesi?</h2>
+    <p>Nimesi näkyy muille pelaajille</p>
+    <input type="text" id="playerNameInput" placeholder="Kirjoita nimesi..." maxlength="20"
+      onkeydown="if(event.key==='Enter') joinGame()" />
+    <button class="btn btn-green" onclick="joinGame()" style="width:100%">Liity peliin</button>
+    <button class="btn btn-ghost" onclick="showScreen('startScreen')" style="width:100%; font-size:0.85rem">← Takaisin</button>
+  </div>
+</div>
+
+<!-- HOST SCREEN -->
+<div class="screen" id="hostScreen">
+  <div class="host-header">
+    <h1>🎲 Arvaa, mitä ajattelen!</h1>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span style="color:var(--text-muted); font-size:0.85rem" id="hostRoundBadge">Kierros 1</span>
+      <button class="btn btn-ghost" onclick="showScreen('startScreen')" style="padding: 8px 14px; font-size: 0.8rem">← Lopeta</button>
+    </div>
+  </div>
+  <div class="host-body">
+    <div class="host-main">
+
+      <div class="cards-display">
+        <div class="game-card orange">
+          <span class="card-label">Millainen</span>
+          <span class="card-word" id="hostAdjCard">?</span>
+        </div>
+        <div class="card-plus">+</div>
+        <div class="game-card green">
+          <span class="card-label">Mikä</span>
+          <span class="card-word" id="hostNounCard">?</span>
+        </div>
+      </div>
+
+      <div class="host-status" id="hostStatus">
+        Odottaa pelaajia... <span id="submittedCount">0</span> / <span id="totalCount">0</span> vastannut
+      </div>
+
+      <div class="answers-grid" id="answersGrid"></div>
+
+      <div class="host-controls">
+        <button class="btn btn-orange" id="revealBtn" onclick="revealAnswers()" disabled>
+          Paljasta vastaukset
+        </button>
+        <button class="btn btn-green" id="nextRoundBtn" onclick="nextRound()" style="display:none">
+          Seuraava kierros →
+        </button>
+      </div>
+    </div>
+
+    <div class="host-sidebar">
+      <div class="sidebar-title">Liity peliin</div>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+        <div id="qrCodeContainer" style="background:#fff; border-radius:12px; padding:12px; display:inline-block;"></div>
+        <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; line-height:1.5;">
+          Skannaa QR-koodi tai jaa linkki pelaajille
+        </p>
+        <div id="playerUrlBox" style="
+          background:var(--bg3);
+          border-radius:8px;
+          padding:8px 12px;
+          font-size:0.72rem;
+          color:var(--text-muted);
+          word-break:break-all;
+          text-align:center;
+          width:100%;
+        "></div>
+      </div>
+      <div class="sidebar-title" style="margin-top:4px;">Pelaajat</div>
+      <div class="player-list" id="hostPlayerList">
+        <p style="color:var(--text-muted); font-size:0.85rem">Ei vielä pelaajia...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER SCREEN -->
+<div class="screen" id="playerScreen">
+  <div class="player-header">
+    <h1>Arvaa!</h1>
+    <div class="player-score-badge">⭐ <span id="myScore">0</span> pistettä</div>
+  </div>
+
+  <div class="player-cards">
+    <div class="game-card orange" style="width:100%; height:90px;">
+      <span class="card-label">Millainen</span>
+      <span class="card-word" id="playerAdjCard">...</span>
+    </div>
+    <div class="game-card green" style="width:100%; height:90px;">
+      <span class="card-label">Mikä</span>
+      <span class="card-word" id="playerNounCard">...</span>
+    </div>
+  </div>
+
+  <div id="playerInputArea" class="input-area">
+    <input type="text" id="playerAnswerInput" placeholder="Kirjoita vastauksesi..."
+      maxlength="40" onkeydown="if(event.key==='Enter') submitAnswer()" />
+    <button class="btn btn-orange" onclick="submitAnswer()" style="width:100%">Lähetä vastaus ✓</button>
+  </div>
+
+  <div id="playerWaiting" class="waiting-message" style="display:none">
+    <div class="big-icon">⏳</div>
+    <h2>Odota paljastusta...</h2>
+    <p>Vastauksesi on lähetetty</p>
+  </div>
+
+  <div id="playerResults" style="width:100%; display:none;">
+    <div class="round-results" id="playerResultsList"></div>
+    <div style="margin-top: 20px; text-align:center; color: var(--text-muted); font-size:0.9rem">
+      Host siirtyy seuraavaan kierrokseen...
+    </div>
+  </div>
+</div>
+
+<!-- WINNER SCREEN -->
+<div class="screen" id="winnerScreen">
+  <div class="winner-content">
+    <div class="winner-emoji">🏆</div>
+    <h1>Voittaja!</h1>
+    <p class="winner-name" id="winnerName"></p>
+    <div class="final-scores" id="finalScores"></div>
+    <button class="btn btn-orange" onclick="resetGame()">Pelaa uudelleen</button>
+  </div>
+</div>
+
+<!-- QR Code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, update, push, remove }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ===================== CARD DATA =====================
+const ADJ_CARDS = [
+  "MIELENKIINTOINEN","KUIVA","PEHMEÄ","ONNELLINEN","NOKKELA","HASSU",
+  "LENTÄVÄ","KARVAINEN","MÄRKÄ","PIIKIKÄS","VENYVÄ","VIISAS","NOPEA",
+  "SALAPERÄINEN","HAUSKA","HIDAS","ÄÄNEKÄS","OVELA","ILOINEN","RIKAS",
+  "ERIKOINEN","MAKEA","KUUMA","JÄNNITTÄVÄ","PÖRRÖINEN","TUNTEELLINEN",
+  "VIHAINEN","LIKAINEN","VÄRIKÄS","SURULLINEN","PIENI","TUOKSUVA",
+  "KIRPEÄ","LEMPEÄ","SULOINEN","VAARALLINEN","JÄINEN","KYLMÄ","SUOLAINEN","ILKAINEN"
+];
+
+const NOUN_CARDS = [
+  "KUULUISUUS","LAHJA","URHEILU","LAULU","HERKKU","PELI","SANKARI",
+  "JUOMA","SARJAKUVA","HENKILÖ","YSTÄVÄ","PERHEENJÄSEN","TUNNE","RUOKA",
+  "AMMATTI","JUHLA","MUUSIKKO","URHEILUVÄLINE","KIRJA","AJONEUVO",
+  "LELU","MATKUSTUSVÄLINE","TYÖKALU","TV-OHJELMA","ELOKUVA","SOITIN",
+  "MATKA","PAIKKA","MUSIIKKI","OPPIAINE"
+];
+
+// ===================== STATE =====================
+let db = null;
+let gameRef = null;
+let myName = "";
+let myId = "";
+let isHost = false;
+let currentRound = 1;
+let unsubscribes = [];
+
+// ===================== FIREBASE INIT =====================
+window.saveConfig = function() {
+  const cfg = {
+    apiKey: document.getElementById('cfg_apiKey').value.trim(),
+    authDomain: document.getElementById('cfg_authDomain').value.trim(),
+    databaseURL: document.getElementById('cfg_databaseURL').value.trim(),
+    projectId: document.getElementById('cfg_projectId').value.trim(),
+  };
+  if (!cfg.apiKey || !cfg.databaseURL) {
+    showNotification("Täytä vähintään apiKey ja databaseURL");
+    return;
+  }
+  localStorage.setItem('fbConfig', JSON.stringify(cfg));
+  initFirebase(cfg);
+  closeModal();
+  showNotification("Firebase yhdistetty! ✓");
+};
+
+function initFirebase(cfg) {
+  try {
+    const app = initializeApp(cfg, 'arvaa-' + Date.now());
+    db = getDatabase(app);
+    gameRef = ref(db, 'game');
+    showNotification("Yhdistetty Firebaseen ✓");
+  } catch(e) {
+    showNotification("Firebase-virhe: " + e.message);
+    db = null;
+  }
+}
+
+function tryAutoInit() {
+  const saved = localStorage.getItem('fbConfig');
+  if (saved) {
+    try {
+      initFirebase(JSON.parse(saved));
+      // Pre-fill modal
+      const cfg = JSON.parse(saved);
+      document.getElementById('cfg_apiKey').value = cfg.apiKey || '';
+      document.getElementById('cfg_authDomain').value = cfg.authDomain || '';
+      document.getElementById('cfg_databaseURL').value = cfg.databaseURL || '';
+      document.getElementById('cfg_projectId').value = cfg.projectId || '';
+    } catch(e) {}
+  }
+}
+
+tryAutoInit();
+
+// ===================== URL PARAMS =====================
+// ?host avaa suoraan host-näkymän, muuten pelaajan nimi-näkymä
+function handleUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('host')) {
+    // Auto-enter host if firebase ready
+    setTimeout(() => {
+      if (db) enterHost();
+      else { openModal(); }
+    }, 300);
+  } else if (window.location.search === '' && localStorage.getItem('fbConfig')) {
+    // Normal URL = player entry - do nothing, show start screen
+  }
+}
+
+handleUrlParams();
+
+// ===================== QR CODE =====================
+function generateQR() {
+  const container = document.getElementById('qrCodeContainer');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Build player URL (current URL without ?host)
+  const base = window.location.href.split('?')[0];
+  const playerUrl = base;
+
+  document.getElementById('playerUrlBox').textContent = playerUrl;
+
+  new QRCode(container, {
+    text: playerUrl,
+    width: 160,
+    height: 160,
+    colorDark: '#1a1a2e',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+window.showScreen = function(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+};
+
+window.openModal = function() {
+  document.getElementById('configModal').classList.add('active');
+};
+
+window.closeModal = function() {
+  document.getElementById('configModal').classList.remove('active');
+};
+
+// ===================== HOST =====================
+window.enterHost = async function() {
+  if (!db) { openModal(); return; }
+  isHost = true;
+  showScreen('hostScreen');
+  generateQR();
+  await startNewRound(true);
+  listenToGame();
+};
+
+async function startNewRound(fresh = false) {
+  const adj = ADJ_CARDS[Math.floor(Math.random() * ADJ_CARDS.length)];
+  const noun = NOUN_CARDS[Math.floor(Math.random() * NOUN_CARDS.length)];
+
+  if (fresh) {
+    await set(gameRef, {
+      round: 1,
+      adjCard: adj,
+      nounCard: noun,
+      phase: 'answering',
+      answers: {},
+      scores: {}
+    });
+    currentRound = 1;
+  } else {
+    currentRound++;
+    const snap = await get(gameRef);
+    const current = snap.val() || {};
+    const scores = current.scores || {};
+    await update(gameRef, {
+      round: currentRound,
+      adjCard: adj,
+      nounCard: noun,
+      phase: 'answering',
+      answers: null
+    });
+  }
+
+  document.getElementById('hostRoundBadge').textContent = `Kierros ${currentRound}`;
+  document.getElementById('hostAdjCard').textContent = adj;
+  document.getElementById('hostNounCard').textContent = noun;
+  document.getElementById('answersGrid').innerHTML = '';
+  document.getElementById('revealBtn').disabled = true;
+  document.getElementById('nextRoundBtn').style.display = 'none';
+  document.getElementById('hostStatus').innerHTML =
+    `Odottaa vastauksia... <span id="submittedCount">0</span> / <span id="totalCount">0</span> vastannut`;
+}
+
+window.revealAnswers = async function() {
+  await update(gameRef, { phase: 'revealed' });
+};
+
+window.nextRound = async function() {
+  await startNewRound(false);
+};
+
+function listenToGame() {
+  unsubscribes.forEach(u => u());
+  unsubscribes = [];
+
+  const unsub = onValue(gameRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const answers = data.answers || {};
+    const players = data.scores || {};
+    const phase = data.phase || 'answering';
+
+    // Update cards
+    document.getElementById('hostAdjCard').textContent = data.adjCard || '?';
+    document.getElementById('hostNounCard').textContent = data.nounCard || '?';
+    document.getElementById('hostRoundBadge').textContent = `Kierros ${data.round || 1}`;
+
+    // Player list
+    const playerEntries = Object.entries(players);
+    const answerEntries = Object.entries(answers);
+    const submittedIds = answerEntries.map(([id]) => id);
+
+    document.getElementById('totalCount').textContent = playerEntries.length;
+    document.getElementById('submittedCount').textContent = submittedIds.length;
+
+    const playerList = document.getElementById('hostPlayerList');
+    if (playerEntries.length === 0) {
+      playerList.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem">Ei vielä pelaajia...</p>';
+    } else {
+      playerList.innerHTML = playerEntries
+        .sort((a,b) => (b[1].score||0) - (a[1].score||0))
+        .map(([id, p]) => `
+          <div class="player-row ${submittedIds.includes(id) ? 'submitted' : ''}">
+            <span class="player-name-text">${p.name}</span>
+            <span>
+              ${submittedIds.includes(id) ? '<span class="player-submitted-icon">✓</span>' : ''}
+              <span class="player-score">${p.score || 0}p</span>
+            </span>
+          </div>
+        `).join('');
+    }
+
+    // Enable reveal when at least 2 players answered
+    document.getElementById('revealBtn').disabled = submittedIds.length < 2 || phase === 'revealed';
+
+    // Show answers
+    if (phase === 'revealed') {
+      showRevealedAnswers(answers, players);
+    }
+
+    // Check winner
+    const winner = playerEntries.find(([,p]) => (p.score||0) >= 8);
+    if (winner) {
+      showWinner(players);
+    }
+  });
+
+  unsubscribes.push(unsub);
+}
+
+function showRevealedAnswers(answers, players) {
+  const grid = document.getElementById('answersGrid');
+
+  // Group by answer (normalized)
+  const groups = {};
+  Object.entries(answers).forEach(([pid, ans]) => {
+    const key = ans.toLowerCase().trim();
+    if (!groups[key]) groups[key] = { original: ans, players: [] };
+    groups[key].players.push(players[pid]?.name || 'Tuntematon');
+  });
+
+  grid.innerHTML = Object.entries(groups).map(([key, g], i) => {
+    const isMatch = g.players.length > 1;
+    return `
+      <div class="answer-chip revealed ${isMatch ? 'match' : ''}"
+           style="animation-delay: ${i * 0.08}s">
+        <span class="answer-player-name">${g.players.join(' & ')}</span>
+        ${g.original}
+        ${isMatch ? '<span style="margin-left:6px">🎯</span>' : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Award points and update scores
+  const updates = {};
+  Object.entries(groups).forEach(([key, g]) => {
+    if (g.players.length > 1) {
+      Object.entries(answers).forEach(([pid, ans]) => {
+        if (ans.toLowerCase().trim() === key) {
+          const currentScore = players[pid]?.score || 0;
+          updates[`scores/${pid}/score`] = currentScore + 1;
+        }
+      });
+    }
+  });
+
+  if (Object.keys(updates).length > 0) {
+    update(gameRef, updates);
+  }
+
+  document.getElementById('revealBtn').disabled = true;
+  document.getElementById('nextRoundBtn').style.display = 'inline-block';
+  document.getElementById('hostStatus').innerHTML =
+    `<strong style="color:var(--orange)">Vastaukset paljastettu!</strong>`;
+}
+
+// ===================== PLAYER =====================
+window.enterPlayer = function() {
+  if (!db) { openModal(); return; }
+  const saved = localStorage.getItem('playerName');
+  if (saved) {
+    myName = saved;
+    myId = localStorage.getItem('playerId') || generateId();
+    localStorage.setItem('playerId', myId);
+    joinGame();
+  } else {
+    showScreen('nameScreen');
+  }
+};
+
+window.joinGame = async function() {
+  const input = document.getElementById('playerNameInput');
+  const name = (input ? input.value : myName).trim();
+  if (!name) { showNotification("Kirjoita nimesi!"); return; }
+
+  myName = name;
+  myId = localStorage.getItem('playerId') || generateId();
+  localStorage.setItem('playerName', name);
+  localStorage.setItem('playerId', myId);
+
+  // Register player in scores
+  await update(ref(db, `game/scores/${myId}`), { name, score: 0 });
+
+  showScreen('playerScreen');
+  listenAsPlayer();
+};
+
+function listenAsPlayer() {
+  unsubscribes.forEach(u => u());
+  unsubscribes = [];
+
+  const unsub = onValue(gameRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const phase = data.phase || 'answering';
+    const myScore = data.scores?.[myId]?.score || 0;
+
+    document.getElementById('playerAdjCard').textContent = data.adjCard || '...';
+    document.getElementById('playerNounCard').textContent = data.nounCard || '...';
+    document.getElementById('myScore').textContent = myScore;
+
+    const hasAnswered = !!(data.answers?.[myId]);
+
+    if (phase === 'answering') {
+      document.getElementById('playerResults').style.display = 'none';
+      if (hasAnswered) {
+        document.getElementById('playerInputArea').style.display = 'none';
+        document.getElementById('playerWaiting').style.display = 'flex';
+      } else {
+        document.getElementById('playerInputArea').style.display = 'flex';
+        document.getElementById('playerWaiting').style.display = 'none';
+        document.getElementById('playerAnswerInput').value = '';
+      }
+    } else if (phase === 'revealed') {
+      document.getElementById('playerInputArea').style.display = 'none';
+      document.getElementById('playerWaiting').style.display = 'none';
+      document.getElementById('playerResults').style.display = 'block';
+      showPlayerResults(data.answers || {}, data.scores || {});
+    }
+
+    // Check winner
+    const scores = Object.values(data.scores || {});
+    const winner = scores.find(p => (p.score||0) >= 8);
+    if (winner) {
+      setTimeout(() => showWinner(data.scores), 2000);
+    }
+  });
+
+  unsubscribes.push(unsub);
+}
+
+window.submitAnswer = async function() {
+  const input = document.getElementById('playerAnswerInput');
+  const answer = input.value.trim();
+  if (!answer) { showNotification("Kirjoita vastaus!"); return; }
+
+  await update(ref(db, `game/answers/${myId}`), answer);
+  await set(ref(db, `game/answers/${myId}`), answer);
+
+  document.getElementById('playerInputArea').style.display = 'none';
+  document.getElementById('playerWaiting').style.display = 'flex';
+};
+
+function showPlayerResults(answers, players) {
+  const groups = {};
+  Object.entries(answers).forEach(([pid, ans]) => {
+    const key = ans.toLowerCase().trim();
+    if (!groups[key]) groups[key] = { original: ans, playerIds: [] };
+    groups[key].playerIds.push(pid);
+  });
+
+  const list = document.getElementById('playerResultsList');
+  list.innerHTML = Object.entries(groups).map(([key, g], i) => {
+    const isMatch = g.playerIds.length > 1;
+    const names = g.playerIds.map(pid => players[pid]?.name || 'Tuntematon').join(' & ');
+    const isMe = g.playerIds.includes(myId);
+    return `
+      <div class="result-row ${isMatch ? 'match' : ''}" style="animation-delay:${i*0.1}s">
+        <div>
+          <div class="result-answer">${g.original} ${isMe ? '👈' : ''}</div>
+          <div class="result-names">${names}</div>
+        </div>
+        ${isMatch ? `<div class="result-badge">+1 piste 🎯</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ===================== WINNER =====================
+function showWinner(scores) {
+  const sorted = Object.entries(scores).sort((a,b) => (b[1].score||0) - (a[1].score||0));
+  const winner = sorted[0];
+
+  document.getElementById('winnerName').textContent =
+    `${winner[1].name} keräsi ${winner[1].score} pistettä!`;
+
+  document.getElementById('finalScores').innerHTML = sorted.map(([,p], i) => `
+    <div class="final-score-row">
+      <span>${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '} ${p.name}</span>
+      <span style="font-family:'Righteous',cursive; color:var(--orange)">${p.score || 0}p</span>
+    </div>
+  `).join('');
+
+  showScreen('winnerScreen');
+}
+
+window.resetGame = async function() {
+  await remove(gameRef);
+  showScreen('startScreen');
+};
+
+// ===================== UTILS =====================
+function generateId() {
+  return Math.random().toString(36).substr(2, 9);
+}
+
+window.showNotification = function(msg) {
+  const n = document.getElementById('notification');
+  n.textContent = msg;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 3000);
+};
+</script>
+</body>
+</html>
