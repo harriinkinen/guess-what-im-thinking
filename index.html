@@ -1299,11 +1299,12 @@ function showRevealedAnswers(answers, players) {
 window.enterPlayer = function() {
   if (!db) { openModal(); return; }
   const saved = localStorage.getItem('playerName');
-  if (saved) {
-    myName = saved;
+  if (saved && saved.trim()) {
+    myName = saved.trim();
     myId = localStorage.getItem('playerId') || generateId();
     localStorage.setItem('playerId', myId);
-    joinGame();
+    showScreen('nameScreen');
+    document.getElementById('playerNameInput').value = myName;
   } else {
     showScreen('nameScreen');
   }
