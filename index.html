@@ -849,7 +849,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.6 · 23.4.2026 21:47</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.7 · 23.4.2026 21:47</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -888,6 +888,89 @@
     <button class="btn btn-green" id="joinBtn" onclick="joinGame()" style="width:100%">Liity peliin</button>
     <button class="btn btn-ghost" id="backBtn" onclick="showScreen('startScreen')" style="width:100%; font-size:0.85rem">← Takaisin</button>
   </div>
+</div>
+
+<!-- HOST LOBBY SCREEN -->
+<div class="screen" id="hostLobbyScreen">
+  <div class="host-header">
+    <h1>🎲 Arvaa, mitä ajattelen!</h1>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span style="color:var(--text-muted); font-size:0.85rem" id="lobbyRoundsBadge">10 kysymystä</span>
+      <button class="btn btn-ghost" onclick="confirmReset()" style="padding: 8px 14px; font-size: 0.8rem">← Lopeta</button>
+    </div>
+  </div>
+  <div class="host-body">
+    <div class="host-main">
+      <div style="text-align:center; margin-bottom:16px;">
+        <div style="font-size:3rem; margin-bottom:12px;">🎉</div>
+        <h2 style="font-family:'Righteous',cursive; font-size:1.8rem; color:var(--orange);">Odotusaula</h2>
+        <p style="color:var(--text-muted); margin-top:8px;">Pelaajat liittyvät peliin. Aloita kun kaikki ovat paikalla.</p>
+      </div>
+
+      <div id="lobbyPlayerList" style="width:100%; max-width:500px; display:flex; flex-direction:column; gap:8px; margin-bottom:24px;">
+        <p style="color:var(--text-muted); font-size:0.9rem; text-align:center;">Ei vielä pelaajia...</p>
+      </div>
+
+      <button class="btn btn-orange" id="startGameBtn" onclick="startGameFromLobby()" disabled
+        style="font-size:1.2rem; padding:18px 48px;">
+        Aloita peli →
+      </button>
+      <p style="color:var(--text-muted); font-size:0.8rem; margin-top:10px;">Vähintään 2 pelaajaa tarvitaan</p>
+    </div>
+
+    <div class="host-sidebar">
+      <div class="sidebar-title">Liity peliin</div>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+        <div id="lobbyQrContainer" style="background:#fff; border-radius:12px; padding:12px; display:inline-block;"></div>
+        <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; line-height:1.5;">
+          Skannaa QR-koodi tai jaa linkki
+        </p>
+        <div id="lobbyUrlBox" style="
+          background:var(--bg3); border-radius:8px; padding:8px 12px;
+          font-size:0.72rem; color:var(--text-muted); word-break:break-all;
+          text-align:center; width:100%;
+        "></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER LOBBY SCREEN -->
+<div class="screen" id="playerLobbyScreen">
+  <div class="player-header">
+    <h1 id="playerLobbyTitle">Odotusaula</h1>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="btn-remove" onclick="confirmLeave()" title="Poistu" style="font-size:1.1rem; padding:4px 8px;">🚪</button>
+    </div>
+  </div>
+  <div style="width:100%; text-align:center; padding: 20px 0;">
+    <div style="font-size:2.5rem; margin-bottom:12px; animation: pulse 2s ease-in-out infinite;">⏳</div>
+    <p id="playerLobbyWaitText" style="color:var(--text-muted); font-size:0.95rem;">Odota kunnes host aloittaa pelin...</p>
+  </div>
+  <div style="width:100%;">
+    <div id="playerLobbySubtitle" style="font-family:'Righteous',cursive; font-size:0.85rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">Pelaajat</div>
+    <div id="playerLobbyList" style="display:flex; flex-direction:column; gap:6px;"></div>
+  </div>
+  <button class="btn btn-ghost" onclick="confirmLeave()" style="width:100%; margin-top:24px; font-size:0.85rem;" id="playerLobbyLeaveBtn">
+    🚪 Poistu pelistä
+  </button>
+</div>
+
+<!-- SPECTATOR SCREEN -->
+<div class="screen" id="spectatorScreen">
+  <div class="player-header">
+    <h1 id="spectatorTitle">Seuraa peliä</h1>
+  </div>
+  <div style="width:100%; text-align:center; padding:16px 0 8px;">
+    <p id="spectatorSubtitle" style="color:var(--text-muted); font-size:0.85rem;">Peli on käynnissä. Voit seurata tilannetta.</p>
+  </div>
+  <div style="width:100%; margin-bottom:16px;">
+    <div id="spectatorRoundBadge" style="font-family:'Righteous',cursive; color:var(--orange); font-size:1rem; margin-bottom:10px;"></div>
+    <div id="spectatorScoreboard" style="display:flex; flex-direction:column; gap:6px;"></div>
+  </div>
+  <button class="btn btn-ghost" onclick="showScreen('startScreen')" style="width:100%; margin-top:8px; font-size:0.85rem;" id="spectatorBackBtn">
+    ← Takaisin
+  </button>
 </div>
 
 <!-- HOST SCREEN -->
@@ -1161,6 +1244,13 @@ const T = {
     winnerScored: (name, score) => `${name} keräsi ${score} pistettä!`,
     playAgain: "Pelaa uudelleen",
     leaveConfirm: "Oletko varma että haluat poistua pelistä? Pisteesi nollataan.",
+    lobbyTitle: "Odotusaula",
+    lobbyWait: "Odota kunnes host aloittaa pelin...",
+    lobbyPlayers: "Pelaajat",
+    lobbyLeave: "🚪 Poistu pelistä",
+    spectatorTitle: "Seuraa peliä",
+    spectatorSub: "Peli on käynnissä. Voit seurata tilannetta.",
+    spectatorBack: "← Takaisin",
   },
   et: {
     title: "Arva!",
@@ -1187,6 +1277,13 @@ const T = {
     winnerScored: (name, score) => `${name} kogus ${score} punkti!`,
     playAgain: "Mängi uuesti",
     leaveConfirm: "Kas oled kindel, et soovid lahkuda? Sinu punktid nullitakse.",
+    lobbyTitle: "Ootesaal",
+    lobbyWait: "Oota, kuni host mängu alustab...",
+    lobbyPlayers: "Mängijad",
+    lobbyLeave: "🚪 Lahku mängust",
+    spectatorTitle: "Jälgi mängu",
+    spectatorSub: "Mäng käib. Saad olukorda jälgida.",
+    spectatorBack: "← Tagasi",
   }
 };
 
@@ -1335,13 +1432,76 @@ window.startGameWithCount = async function() {
   totalRounds = val;
   document.getElementById('questionCountModal').classList.remove('active');
   isHost = true;
+
+  // Aseta lobby-tila Firebaseen (tyhjennä vanhat pisteet)
+  await set(gameRef, { phase: 'lobby', totalRounds, scores: {} });
+
+  document.getElementById('lobbyRoundsBadge').textContent = `${totalRounds} kysymystä`;
+  showScreen('hostLobbyScreen');
+  generateLobbyQR();
+  listenToLobby();
+};
+
+function generateLobbyQR() {
+  const container = document.getElementById('lobbyQrContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  const base = window.location.href.split('?')[0];
+  document.getElementById('lobbyUrlBox').textContent = base;
+  new QRCode(container, {
+    text: base, width: 160, height: 160,
+    colorDark: '#1a1a2e', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function listenToLobby() {
+  unsubscribes.forEach(u => u());
+  unsubscribes = [];
+  const unsub = onValue(gameRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+    if (data.phase !== 'lobby') return;
+
+    const players = Object.entries(data.scores || {});
+    const list = document.getElementById('lobbyPlayerList');
+
+    if (players.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem; text-align:center;">Ei vielä pelaajia...</p>';
+    } else {
+      list.innerHTML = players.map(([id, p]) => `
+        <div style="
+          display:flex; justify-content:space-between; align-items:center;
+          background:var(--bg2); border-radius:10px; padding:10px 16px; font-size:0.95rem;
+        ">
+          <span style="font-weight:700">👤 ${p.name}</span>
+          <button class="btn-remove" onclick="removePlayer('${id}')" title="Poista">✕</button>
+        </div>
+      `).join('');
+    }
+
+    const startBtn = document.getElementById('startGameBtn');
+    startBtn.disabled = players.length < 2;
+  });
+  unsubscribes.push(unsub);
+}
+
+window.startGameFromLobby = async function() {
+  unsubscribes.forEach(u => u());
+  unsubscribes = [];
+
+  // Lukitse pelaajat: tallenna locked-lista
+  const snap = await get(gameRef);
+  const data = snap.val() || {};
+  const lockedPlayers = Object.keys(data.scores || {});
+
   showScreen('hostScreen');
   generateQR();
-  await startNewRound(true);
+  await startNewRound(true, lockedPlayers);
   listenToGame();
 };
 
-async function startNewRound(fresh = false) {
+async function startNewRound(fresh = false, lockedPlayers = null) {
   const adjObj = ADJ_CARDS[Math.floor(Math.random() * ADJ_CARDS.length)];
   const nounObj = NOUN_CARDS[Math.floor(Math.random() * NOUN_CARDS.length)];
 
@@ -1349,14 +1509,23 @@ async function startNewRound(fresh = false) {
     const snap = await get(gameRef);
     const existing = snap.val() || {};
     const existingScores = existing.scores || {};
+    // Jos lockedPlayers annettu, suodata vain ne
+    let scores = existingScores;
+    if (lockedPlayers) {
+      scores = {};
+      lockedPlayers.forEach(id => {
+        if (existingScores[id]) scores[id] = existingScores[id];
+      });
+    }
     await set(gameRef, {
       round: 1,
       totalRounds,
       adjCard: adjObj,
       nounCard: nounObj,
       phase: 'answering',
+      lockedPlayers: lockedPlayers || Object.keys(existingScores),
       answers: {},
-      scores: existingScores
+      scores
     });
     currentRound = 1;
   } else {
@@ -1573,12 +1742,132 @@ window.joinGame = async function() {
   localStorage.setItem('playerId', myId);
   localStorage.setItem('playerLang', myLang);
 
-  await update(ref(db, `game/scores/${myId}`), { name, score: 0 });
+  // Tarkista pelin tila ennen liittymistä
+  const snap = await get(gameRef);
+  const data = snap.val();
+  const phase = data?.phase;
 
-  showScreen('playerScreen');
-  applyLang();
-  listenAsPlayer();
+  if (!data || phase === 'inactive') {
+    // Rekisteröidy ja näytä "ei peliä"
+    await update(ref(db, `game/scores/${myId}`), { name, score: 0 });
+    showScreen('playerScreen');
+    applyLang();
+    listenAsPlayer();
+    return;
+  }
+
+  if (phase === 'lobby') {
+    // Liity odotusaulaan
+    await update(ref(db, `game/scores/${myId}`), { name, score: 0 });
+    showScreen('playerLobbyScreen');
+    applyPlayerLobbyLang();
+    listenAsPlayerLobby();
+    return;
+  }
+
+  // Peli on jo käynnissä — tarkista onko lukittu pelaaja
+  const locked = data.lockedPlayers || [];
+  if (locked.includes(myId)) {
+    // Lukittu pelaaja palaa peliin
+    showScreen('playerScreen');
+    applyLang();
+    listenAsPlayer();
+  } else {
+    // Myöhään tullut — spectator
+    showScreen('spectatorScreen');
+    applySpectatorLang();
+    listenAsSpectator();
+  }
 };
+
+function applyPlayerLobbyLang() {
+  const t = T[myLang];
+  document.getElementById('playerLobbyTitle').textContent = t.lobbyTitle;
+  document.getElementById('playerLobbyWaitText').textContent = t.lobbyWait;
+  document.getElementById('playerLobbySubtitle').textContent = t.lobbyPlayers;
+  document.getElementById('playerLobbyLeaveBtn').textContent = t.lobbyLeave;
+}
+
+function applySpectatorLang() {
+  const t = T[myLang];
+  document.getElementById('spectatorTitle').textContent = t.spectatorTitle;
+  document.getElementById('spectatorSubtitle').textContent = t.spectatorSub;
+  document.getElementById('spectatorBackBtn').textContent = t.spectatorBack;
+}
+
+function listenAsPlayerLobby() {
+  unsubscribes.forEach(u => u());
+  unsubscribes = [];
+  const unsub = onValue(gameRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    if (data.phase === 'lobby') {
+      // Päivitä pelaajalistaus
+      const players = Object.entries(data.scores || {});
+      const list = document.getElementById('playerLobbyList');
+      list.innerHTML = players.map(([id, p]) => `
+        <div style="
+          background:${id === myId ? 'rgba(245,166,35,0.12)' : 'var(--bg2)'};
+          border:1px solid ${id === myId ? 'rgba(245,166,35,0.4)' : 'rgba(255,255,255,0.05)'};
+          border-radius:10px; padding:10px 14px; font-size:0.9rem; font-weight:700;
+        ">
+          👤 ${p.name}${id === myId ? ' <span style="color:var(--text-muted);font-size:0.75rem;">(sinä)</span>' : ''}
+        </div>
+      `).join('');
+    } else if (data.phase === 'answering' || data.phase === 'revealed') {
+      // Peli alkoi — tarkista onko lukittu pelaaja
+      const locked = data.lockedPlayers || [];
+      unsubscribes.forEach(u => u());
+      unsubscribes = [];
+      if (locked.includes(myId)) {
+        showScreen('playerScreen');
+        applyLang();
+        listenAsPlayer();
+      } else {
+        showScreen('spectatorScreen');
+        applySpectatorLang();
+        listenAsSpectator();
+      }
+    } else if (data.phase === 'inactive') {
+      showScreen('startScreen');
+    }
+  });
+  unsubscribes.push(unsub);
+}
+
+function listenAsSpectator() {
+  unsubscribes.forEach(u => u());
+  unsubscribes = [];
+  const unsub = onValue(gameRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const tr = data.totalRounds || 10;
+    document.getElementById('spectatorRoundBadge').textContent =
+      `Kierros ${data.round || 1} / ${tr}`;
+
+    const players = Object.entries(data.scores || {});
+    const sorted = players.sort((a,b) => (b[1].score||0) - (a[1].score||0));
+    document.getElementById('spectatorScoreboard').innerHTML = sorted.map(([id, p], i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+      return `
+        <div style="
+          display:flex; justify-content:space-between; align-items:center;
+          background:var(--bg2); border-radius:10px; padding:10px 14px; font-size:0.9rem;
+        ">
+          <span>${medal} <strong>${p.name}</strong></span>
+          <span style="font-family:'Righteous',cursive; color:var(--orange)">${p.score || 0}p</span>
+        </div>
+      `;
+    }).join('');
+
+    if (data.phase === 'winner' || data.phase === 'inactive') {
+      showScreen('startScreen');
+    }
+  });
+  unsubscribes.push(unsub);
+}
 
 function listenAsPlayer() {
   unsubscribes.forEach(u => u());
@@ -1587,12 +1876,20 @@ function listenAsPlayer() {
   const unsub = onValue(gameRef, (snap) => {
     const data = snap.val();
 
-    // Ei peliä käynnissä
+    // Ei peliä käynnissä tai lobby
     if (!data || data.phase === 'inactive') {
       document.getElementById('noGameArea').style.display = 'flex';
       document.getElementById('gameArea').style.display = 'none';
       document.getElementById('myScore').textContent = 0;
       document.getElementById('playerScoreboard').innerHTML = '';
+      return;
+    }
+
+    if (data.phase === 'lobby') {
+      // Pelaaja on lukittu mutta peli ei alkanut vielä
+      showScreen('playerLobbyScreen');
+      applyPlayerLobbyLang();
+      listenAsPlayerLobby();
       return;
     }
 
