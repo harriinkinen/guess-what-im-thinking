@@ -849,7 +849,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.7 · 23.4.2026 21:47</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.8 · 23.4.2026 21:47</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -1547,7 +1547,6 @@ async function startNewRound(fresh = false, lockedPlayers = null) {
   delete grid.dataset.scored;
   delete grid.dataset.round;
   document.getElementById('nextRoundBtn').style.display = 'none';
-  document.getElementById('roundStatus').innerHTML = '';
   document.getElementById('hostStatus').innerHTML =
     `Odottaa vastauksia... <span id="submittedCount">0</span> / <span id="totalCount">0</span> vastannut`;
 }
@@ -1873,6 +1872,8 @@ function listenAsPlayer() {
   unsubscribes.forEach(u => u());
   unsubscribes = [];
 
+  let lastRound = null; // seurataan kierroksen vaihtumista
+
   const unsub = onValue(gameRef, (snap) => {
     const data = snap.val();
 
@@ -1886,7 +1887,6 @@ function listenAsPlayer() {
     }
 
     if (data.phase === 'lobby') {
-      // Pelaaja on lukittu mutta peli ei alkanut vielä
       showScreen('playerLobbyScreen');
       applyPlayerLobbyLang();
       listenAsPlayerLobby();
@@ -1898,6 +1898,9 @@ function listenAsPlayer() {
 
     const phase = data.phase || 'answering';
     const myScore = data.scores?.[myId]?.score || 0;
+    const currentRoundNum = data.round || 1;
+    const isNewRound = lastRound !== null && lastRound !== currentRoundNum;
+    lastRound = currentRoundNum;
 
     // Näytä kortit pelaajan kielellä
     const adjObj = data.adjCard || {fi:'...', et:'...'};
@@ -1924,7 +1927,8 @@ function listenAsPlayer() {
         document.getElementById('playerWaiting').style.display = 'none';
         const input = document.getElementById('playerAnswerInput');
         input.disabled = false;
-        input.value = '';
+        // Tyhjennä kenttä VAIN uuden kierroksen alussa, ei muulloin
+        if (isNewRound) input.value = '';
         const btn = document.querySelector('#playerInputArea button');
         if (btn) btn.disabled = false;
       }
@@ -1937,7 +1941,7 @@ function listenAsPlayer() {
       setTimeout(() => showWinner(data.scores), 500);
     }
 
-    // Update scoreboard
+    // Näytä scoreboard AINA (ei ehdollisesti)
     updatePlayerScoreboard(data.scores || {});
   });
 
