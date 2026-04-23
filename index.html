@@ -1044,7 +1044,11 @@ function tryAutoInit() {
   initFirebase(FIREBASE_CONFIG);
 }
 
-tryAutoInit();
+// Wait for DOM + scripts to be ready before init
+setTimeout(() => {
+  tryAutoInit();
+  handleUrlParams();
+}, 100);
 
 // ===================== URL PARAMS =====================
 // ?host avaa suoraan host-näkymän, muuten pelaajan nimi-näkymä
@@ -1060,8 +1064,6 @@ function handleUrlParams() {
     // Normal URL = player entry - do nothing, show start screen
   }
 }
-
-handleUrlParams();
 
 // ===================== QR CODE =====================
 function generateQR() {
