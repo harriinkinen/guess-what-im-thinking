@@ -834,7 +834,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.0 · 23.4.2025</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.3 · 23.4.2026 16:45</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -891,21 +891,28 @@
       </div>
 
       <div class="host-status" id="hostStatus">
-        Odottaa pelaajia... <span id="submittedCount">0</span> / <span id="totalCount">0</span> vastannut
+        Odottaa vastauksia... <span id="submittedCount">0</span> / <span id="totalCount">0</span> vastannut
       </div>
 
+      <!-- Tämän kierroksen tilanne -->
+      <div id="roundStatus" style="width:100%; max-width:600px; display:flex; flex-direction:column; gap:6px;"></div>
+
+      <!-- Vastaukset paljastuksen jälkeen -->
       <div class="answers-grid" id="answersGrid"></div>
 
       <div class="host-controls">
-        <button class="btn btn-orange" id="revealBtn" onclick="revealAnswers()" disabled>
-          Paljasta vastaukset
-        </button>
         <button class="btn btn-green" id="nextRoundBtn" onclick="nextRound()" style="display:none">
           Seuraava kierros →
         </button>
         <button class="btn btn-ghost" onclick="confirmReset()" style="font-size:0.85rem; padding:10px 18px;">
           🔄 Resetoi peli
         </button>
+      </div>
+
+      <!-- Kokonaisranking -->
+      <div style="width:100%; max-width:600px; margin-top:8px;">
+        <div class="sidebar-title" style="margin-bottom:10px;">Kokonaisranking</div>
+        <div id="hostRanking" style="display:flex; flex-direction:column; gap:6px;"></div>
       </div>
     </div>
 
@@ -1173,9 +1180,12 @@ async function startNewRound(fresh = false) {
   document.getElementById('hostRoundBadge').textContent = `Kierros ${currentRound}`;
   document.getElementById('hostAdjCard').textContent = adj;
   document.getElementById('hostNounCard').textContent = noun;
-  document.getElementById('answersGrid').innerHTML = '';
-  document.getElementById('revealBtn').disabled = true;
+  const grid = document.getElementById('answersGrid');
+  grid.innerHTML = '';
+  delete grid.dataset.scored;
+  delete grid.dataset.round;
   document.getElementById('nextRoundBtn').style.display = 'none';
+  document.getElementById('roundStatus').innerHTML = '';
   document.getElementById('hostStatus').innerHTML =
     `Odottaa vastauksia... <span id="submittedCount">0</span> / <span id="totalCount">0</span> vastannut`;
 }
@@ -1205,14 +1215,53 @@ function listenToGame() {
     document.getElementById('hostNounCard').textContent = data.nounCard || '?';
     document.getElementById('hostRoundBadge').textContent = `Kierros ${data.round || 1}`;
 
-    // Player list
     const playerEntries = Object.entries(players);
-    const answerEntries = Object.entries(answers);
-    const submittedIds = answerEntries.map(([id]) => id);
+    const submittedIds = Object.keys(answers);
 
     document.getElementById('totalCount').textContent = playerEntries.length;
     document.getElementById('submittedCount').textContent = submittedIds.length;
 
+    // Tämän kierroksen tilanne: kuka vastannut, kuka ei
+    const roundStatus = document.getElementById('roundStatus');
+    if (phase === 'answering') {
+      roundStatus.innerHTML = playerEntries.map(([id, p]) => {
+        const done = submittedIds.includes(id);
+        return `
+          <div style="
+            display:flex; justify-content:space-between; align-items:center;
+            background:var(--bg2); border-radius:10px; padding:8px 14px;
+            border-left:3px solid ${done ? 'var(--green)' : 'rgba(255,255,255,0.1)'};
+            font-size:0.9rem;
+          ">
+            <span style="font-weight:700">${p.name}</span>
+            <span style="color:${done ? 'var(--green)' : 'var(--text-muted)'}">
+              ${done ? '✓ Vastannut' : '⏳ Odottaa...'}
+            </span>
+          </div>
+        `;
+      }).join('');
+    } else {
+      roundStatus.innerHTML = '';
+    }
+
+    // Kokonaisranking
+    const ranking = document.getElementById('hostRanking');
+    ranking.innerHTML = playerEntries
+      .sort((a,b) => (b[1].score||0) - (a[1].score||0))
+      .map(([id, p], i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+        return `
+          <div style="
+            display:flex; justify-content:space-between; align-items:center;
+            background:var(--bg2); border-radius:10px; padding:8px 14px; font-size:0.9rem;
+          ">
+            <span>${medal} <strong>${p.name}</strong></span>
+            <span style="font-family:'Righteous',cursive; color:var(--orange)">${p.score || 0}p</span>
+          </div>
+        `;
+      }).join('');
+
+    // Sivupalkin pelaajalistaus (poisto-napit)
     const playerList = document.getElementById('hostPlayerList');
     if (playerEntries.length === 0) {
       playerList.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem">Ei vielä pelaajia...</p>';
@@ -1231,15 +1280,17 @@ function listenToGame() {
         `).join('');
     }
 
-    // Enable reveal when at least 2 players answered
-    document.getElementById('revealBtn').disabled = submittedIds.length < 2 || phase === 'revealed';
+    // Auto-reveal kun kaikki ovat vastanneet
+    if (phase === 'answering' && playerEntries.length > 0 && submittedIds.length >= playerEntries.length) {
+      revealAnswers();
+    }
 
-    // Show answers
+    // Näytä vastaukset jos jo paljastettu
     if (phase === 'revealed') {
       showRevealedAnswers(answers, players);
     }
 
-    // Check winner
+    // Tarkista voittaja
     const winner = playerEntries.find(([,p]) => (p.score||0) >= 8);
     if (winner) {
       showWinner(players);
@@ -1251,45 +1302,47 @@ function listenToGame() {
 
 function showRevealedAnswers(answers, players) {
   const grid = document.getElementById('answersGrid');
+  if (grid.dataset.round === String(currentRound) && grid.innerHTML !== '') return; // ei renderöidä uudelleen
+  grid.dataset.round = currentRound;
 
   // Group by answer (normalized)
   const groups = {};
   Object.entries(answers).forEach(([pid, ans]) => {
     const key = ans.toLowerCase().trim();
-    if (!groups[key]) groups[key] = { original: ans, players: [] };
-    groups[key].players.push(players[pid]?.name || 'Tuntematon');
+    if (!groups[key]) groups[key] = { original: ans, playerIds: [], playerNames: [] };
+    groups[key].playerIds.push(pid);
+    groups[key].playerNames.push(players[pid]?.name || 'Tuntematon');
   });
 
   grid.innerHTML = Object.entries(groups).map(([key, g], i) => {
-    const isMatch = g.players.length > 1;
+    const isMatch = g.playerIds.length > 1;
     return `
       <div class="answer-chip revealed ${isMatch ? 'match' : ''}"
            style="animation-delay: ${i * 0.08}s">
-        <span class="answer-player-name">${g.players.join(' & ')}</span>
+        <span class="answer-player-name">${g.playerNames.join(' & ')}</span>
         ${g.original}
         ${isMatch ? '<span style="margin-left:6px">🎯</span>' : ''}
       </div>
     `;
   }).join('');
 
-  // Award points and update scores
-  const updates = {};
-  Object.entries(groups).forEach(([key, g]) => {
-    if (g.players.length > 1) {
-      Object.entries(answers).forEach(([pid, ans]) => {
-        if (ans.toLowerCase().trim() === key) {
+  // Laske pisteet vain kerran (tarkista ettei jo laskettu)
+  if (!grid.dataset.scored) {
+    grid.dataset.scored = '1';
+    const updates = {};
+    Object.entries(groups).forEach(([key, g]) => {
+      if (g.playerIds.length > 1) {
+        g.playerIds.forEach(pid => {
           const currentScore = players[pid]?.score || 0;
           updates[`scores/${pid}/score`] = currentScore + 1;
-        }
-      });
+        });
+      }
+    });
+    if (Object.keys(updates).length > 0) {
+      update(gameRef, updates);
     }
-  });
-
-  if (Object.keys(updates).length > 0) {
-    update(gameRef, updates);
   }
 
-  document.getElementById('revealBtn').disabled = true;
   document.getElementById('nextRoundBtn').style.display = 'inline-block';
   document.getElementById('hostStatus').innerHTML =
     `<strong style="color:var(--orange)">Vastaukset paljastettu!</strong>`;
@@ -1349,10 +1402,20 @@ function listenAsPlayer() {
       if (hasAnswered) {
         document.getElementById('playerInputArea').style.display = 'none';
         document.getElementById('playerWaiting').style.display = 'flex';
+        // Näytä kuinka moni on vastannut
+        const allPlayers = Object.keys(data.scores || {}).length;
+        const answered = Object.keys(data.answers || {}).length;
+        document.querySelector('#playerWaiting p').textContent =
+          `${answered} / ${allPlayers} pelaajaa vastannut`;
       } else {
         document.getElementById('playerInputArea').style.display = 'flex';
         document.getElementById('playerWaiting').style.display = 'none';
-        document.getElementById('playerAnswerInput').value = '';
+        // Varmista että kenttä on auki
+        const input = document.getElementById('playerAnswerInput');
+        input.disabled = false;
+        input.value = '';
+        const btn = document.querySelector('#playerInputArea button');
+        if (btn) btn.disabled = false;
       }
     } else if (phase === 'revealed') {
       document.getElementById('playerInputArea').style.display = 'none';
@@ -1405,7 +1468,10 @@ window.submitAnswer = async function() {
   const answer = input.value.trim();
   if (!answer) { showNotification("Kirjoita vastaus!"); return; }
 
-  await update(ref(db, `game/answers/${myId}`), answer);
+  // Lukitse kenttä välittömästi
+  input.disabled = true;
+  document.querySelector('#playerInputArea button').disabled = true;
+
   await set(ref(db, `game/answers/${myId}`), answer);
 
   document.getElementById('playerInputArea').style.display = 'none';
