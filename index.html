@@ -1030,19 +1030,18 @@ function initFirebase(cfg) {
   }
 }
 
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDm6t3JCxcXWmJWW7ZOZWwTp2Dt1n4OmIE",
+  authDomain: "guess-what-im-thinking.firebaseapp.com",
+  databaseURL: "https://guess-what-im-thinking-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "guess-what-im-thinking",
+  storageBucket: "guess-what-im-thinking.firebasestorage.app",
+  messagingSenderId: "675530614302",
+  appId: "1:675530614302:web:4a10798e3e94638c5df00f"
+};
+
 function tryAutoInit() {
-  const saved = localStorage.getItem('fbConfig');
-  if (saved) {
-    try {
-      initFirebase(JSON.parse(saved));
-      // Pre-fill modal
-      const cfg = JSON.parse(saved);
-      document.getElementById('cfg_apiKey').value = cfg.apiKey || '';
-      document.getElementById('cfg_authDomain').value = cfg.authDomain || '';
-      document.getElementById('cfg_databaseURL').value = cfg.databaseURL || '';
-      document.getElementById('cfg_projectId').value = cfg.projectId || '';
-    } catch(e) {}
-  }
+  initFirebase(FIREBASE_CONFIG);
 }
 
 tryAutoInit();
