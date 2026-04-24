@@ -814,7 +814,7 @@
       style="text-align:center; font-size:2rem; font-family:'Righteous',cursive; color:var(--orange);"
       onkeydown="if(event.key==='Enter') startGameWithCount()" />
     <p style="margin-top:16px; color:var(--text-muted); font-size:0.9rem;">Aika per kysymys (sekuntia)</p>
-    <input type="number" id="questionTimerInput" value="20" min="5" max="120"
+    <input type="number" id="questionTimerInput" value="30" min="5" max="120"
       style="text-align:center; font-size:1.5rem; font-family:'Righteous',cursive; color:var(--green);"
       onkeydown="if(event.key==='Enter') startGameWithCount()" />
     <div class="modal-buttons">
@@ -853,7 +853,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v2.3 · 25.4.2026</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v2.7 · 25.4.2026</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -1139,10 +1139,15 @@
     <div class="winner-emoji">🏆</div>
     <h1 id="winnerTitle">Voittaja!</h1>
     <p class="winner-name" id="winnerName"></p>
-    <div class="final-scores" id="finalScores"></div>
-    <div id="likesSection" style="display:none; width:100%; margin-top:8px;">
-      <div style="font-family:'Righteous',cursive; font-size:0.95rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">👍 Hauskimmat vastaukset</div>
-      <div id="likesScoreboard" style="display:flex; flex-direction:column; gap:6px;"></div>
+    <div style="display:flex; gap:16px; width:100%; align-items:flex-start; flex-wrap:wrap;">
+      <div style="flex:1; min-width:140px;">
+        <div style="font-family:'Righteous',cursive; font-size:0.85rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">🏆 Pisteet</div>
+        <div class="final-scores" id="finalScores"></div>
+      </div>
+      <div id="likesSection" style="display:none; flex:1; min-width:140px;">
+        <div style="font-family:'Righteous',cursive; font-size:0.85rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">👍 Hauskimmat</div>
+        <div id="likesScoreboard" style="display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
     </div>
     <button class="btn btn-orange" onclick="resetGame()" style="margin-top:20px;">Pelaa uudelleen</button>
   </div>
@@ -2055,9 +2060,26 @@ function listenAsPlayer() {
         if (tDisplay && tNum && timer > 0 && isNewRound) {
           tDisplay.style.display = 'block';
           tNum.textContent = timer;
+          // Käynnistä countdown
+          if (window._playerTimerInterval) clearInterval(window._playerTimerInterval);
+          let remaining = timer;
+          window._playerTimerInterval = setInterval(() => {
+            remaining--;
+            tNum.textContent = remaining;
+            tNum.style.color = remaining <= 5 ? '#ff6b6b' : 'var(--orange)';
+            if (remaining <= 0) {
+              clearInterval(window._playerTimerInterval);
+              window._playerTimerInterval = null;
+              tDisplay.style.display = 'none';
+            }
+          }, 1000);
         }
       }
     } else if (phase === 'revealed') {
+      // Pysäytä ajastin
+      if (window._playerTimerInterval) { clearInterval(window._playerTimerInterval); window._playerTimerInterval = null; }
+      const tDisplay = document.getElementById('playerTimerDisplay');
+      if (tDisplay) tDisplay.style.display = 'none';
       // Jos pelaaja oli kirjoittanut mutta ei lähettänyt — tallenna automaattisesti
       const input = document.getElementById('playerAnswerInput');
       if (!hasAnswered && input && input.value.trim()) {
@@ -2108,6 +2130,11 @@ window.submitAnswer = async function() {
   const answer = input.value.trim();
   if (!answer) { showNotification("Kirjoita vastaus!"); return; }
 
+  // Pysäytä ajastin
+  if (window._playerTimerInterval) { clearInterval(window._playerTimerInterval); window._playerTimerInterval = null; }
+  const tDisplay = document.getElementById('playerTimerDisplay');
+  if (tDisplay) tDisplay.style.display = 'none';
+
   // Lukitse kenttä välittömästi
   input.disabled = true;
   document.querySelector('#playerInputArea button').disabled = true;
@@ -2140,22 +2167,21 @@ function showPlayerResults(answers, players) {
     const isMe = g.playerIds.includes(myId);
     const canLike = key !== myAnswer;
     const likeBtn = canLike
-      ? `<button class="btn btn-ghost like-btn" id="likeBtn_${key}"
+      ? `<button class="btn-remove like-btn" id="likeBtn_${key}"
            onclick="submitLike('${key}', '${g.original.replace(/'/g,"\\'")}', this)"
-           style="margin-top:6px; font-size:0.85rem; padding:8px 12px; border-radius:10px; width:100%; text-align:left;">
-           👍 Peukuta tätä
-         </button>`
+           style="font-size:1.3rem; padding:4px 8px; flex-shrink:0; opacity:0.7;"
+           title="Peukuta">👍</button>`
       : '';
     return `
-      <div class="result-row ${isMatch ? 'match' : ''}" style="animation-delay:${i*0.1}s; flex-direction:column; align-items:flex-start;">
-        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-          <div>
-            <div class="result-answer">${g.original} ${isMe ? '👈' : ''}</div>
-            <div class="result-names">${names}</div>
-          </div>
-          ${isMatch ? `<div class="result-badge">+1 🎯</div>` : ''}
+      <div class="result-row ${isMatch ? 'match' : ''}" style="animation-delay:${i*0.1}s;">
+        <div style="flex:1;">
+          <div class="result-answer">${g.original} ${isMe ? '👈' : ''}</div>
+          <div class="result-names">${names}</div>
         </div>
-        ${likeBtn}
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          ${isMatch ? `<div class="result-badge">+1 🎯</div>` : ''}
+          ${likeBtn}
+        </div>
       </div>
     `;
   }).join('');
@@ -2167,10 +2193,9 @@ function showPlayerResults(answers, players) {
 
 window.submitLike = async function(answerKey, answerText, btn) {
   btn.disabled = true;
-  btn.style.opacity = '0.5';
-  btn.style.borderColor = 'var(--orange)';
+  btn.style.opacity = '1';
   btn.style.color = 'var(--orange)';
-  btn.textContent = '👍 Peukutettu ✓';
+  btn.textContent = '✓';
 
   const roundSnap = await get(ref(db, 'game/round'));
   const roundNum = roundSnap.val() || 1;
