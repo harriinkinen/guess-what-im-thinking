@@ -849,7 +849,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.9 · 24.4.2026 21:47</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v2.0 · 24.4.2026 21:47</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -2048,12 +2048,13 @@ function showPlayerResults(answers, players) {
     `;
   }).join('');
 
-  // Peukutusnapit — vain muiden vastaukset
-  const otherGroups = Object.entries(groups).filter(([, g]) => !g.playerIds.includes(myId));
+  // Peukutusnapit — kaikki vastaukset paitsi oma
+  const myAnswer = answers[myId]?.toLowerCase().trim();
+  const votableGroups = Object.entries(groups).filter(([key]) => key !== myAnswer);
   const likingArea = document.getElementById('likingArea');
-  if (otherGroups.length > 0) {
+  if (votableGroups.length > 0) {
     likingArea.style.display = 'block';
-    document.getElementById('likingButtons').innerHTML = otherGroups.map(([key, g]) => {
+    document.getElementById('likingButtons').innerHTML = votableGroups.map(([key, g]) => {
       const names = g.playerIds.map(pid => players[pid]?.name || '?').join(' & ');
       return `
         <button class="btn btn-ghost" id="likeBtn_${key}"
