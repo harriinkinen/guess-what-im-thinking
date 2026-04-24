@@ -849,7 +849,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.8 · 23.4.2026 21:47</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v1.9 · 24.4.2026 21:47</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -978,6 +978,7 @@
   <div class="host-header">
     <h1>🎲 Arvaa, mitä ajattelen!</h1>
     <div style="display:flex; gap:10px; align-items:center;">
+      <span id="spectatorCount" style="color:var(--text-muted); font-size:0.8rem; display:none;">👁 <span id="spectatorCountNum">0</span> katselijaa</span>
       <span style="color:var(--text-muted); font-size:0.85rem" id="hostRoundBadge">Kierros 1 / 10</span>
       <button class="btn btn-ghost" onclick="showScreen('startScreen')" style="padding: 8px 14px; font-size: 0.8rem">← Lopeta</button>
     </div>
@@ -1011,15 +1012,19 @@
         <button class="btn btn-green" id="nextRoundBtn" onclick="nextRound()" style="display:none">
           Seuraava kierros →
         </button>
-        <button class="btn btn-ghost" onclick="confirmReset()" style="font-size:0.85rem; padding:10px 18px;">
-          🔄 Resetoi peli
-        </button>
       </div>
 
       <!-- Kokonaisranking -->
       <div style="width:100%; max-width:600px; margin-top:8px;">
         <div class="sidebar-title" style="margin-bottom:10px;">Kokonaisranking</div>
         <div id="hostRanking" style="display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+
+      <!-- Resetoi pois tieltä alaosaan -->
+      <div style="margin-top:20px;">
+        <button class="btn btn-ghost" onclick="confirmReset()" style="font-size:0.78rem; padding:7px 14px; opacity:0.5;">
+          🔄 Resetoi peli
+        </button>
       </div>
     </div>
 
@@ -1093,6 +1098,11 @@
 
     <div id="playerResults" style="width:100%; display:none;">
       <div class="round-results" id="playerResultsList"></div>
+      <div id="likingArea" style="display:none; margin-top:16px;">
+        <div id="likingLabel" style="font-family:'Righteous',cursive; font-size:0.82rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">👍 Äänestä hauskin vastaus</div>
+        <div id="likingButtons" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <p id="likingOptional" style="color:var(--text-muted); font-size:0.75rem; margin-top:6px;">Vapaaehtoinen</p>
+      </div>
       <div id="hostNextText" style="margin-top: 20px; text-align:center; color: var(--text-muted); font-size:0.9rem">
         Host siirtyy seuraavaan kierrokseen...
       </div>
@@ -1114,10 +1124,14 @@
 <div class="screen" id="winnerScreen">
   <div class="winner-content">
     <div class="winner-emoji">🏆</div>
-    <h1>Voittaja!</h1>
+    <h1 id="winnerTitle">Voittaja!</h1>
     <p class="winner-name" id="winnerName"></p>
     <div class="final-scores" id="finalScores"></div>
-    <button class="btn btn-orange" onclick="resetGame()">Pelaa uudelleen</button>
+    <div id="likesSection" style="display:none; width:100%; margin-top:8px;">
+      <div style="font-family:'Righteous',cursive; font-size:0.95rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">👍 Hauskimmat vastaukset</div>
+      <div id="likesScoreboard" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+    <button class="btn btn-orange" onclick="resetGame()" style="margin-top:20px;">Pelaa uudelleen</button>
   </div>
 </div>
 
@@ -1582,6 +1596,16 @@ function listenToGame() {
     document.getElementById('hostRoundBadge').textContent = `Kierros ${data.round || 1} / ${tr}`;
 
     const playerEntries = Object.entries(players);
+
+    // Katselijalaskuri
+    const specCount = data.spectatorCount || 0;
+    const specEl = document.getElementById('spectatorCount');
+    if (specCount > 0) {
+      specEl.style.display = 'inline';
+      document.getElementById('spectatorCountNum').textContent = specCount;
+    } else {
+      specEl.style.display = 'none';
+    }
     const submittedIds = Object.keys(answers);
 
     document.getElementById('totalCount').textContent = playerEntries.length;
@@ -1708,7 +1732,12 @@ function showRevealedAnswers(answers, players) {
   document.getElementById('nextRoundBtn').style.display = 'inline-block';
   const isLastRound = currentRound >= (totalRounds || 10);
   document.getElementById('nextRoundBtn').textContent = isLastRound ? '🏆 Näytä tulokset' : 'Seuraava kierros →';
-  document.getElementById('nextRoundBtn').onclick = isLastRound ? () => showWinner(players) : nextRound;
+  document.getElementById('nextRoundBtn').onclick = isLastRound
+    ? async () => {
+        const snap = await get(ref(db, 'game/scores'));
+        showWinner(snap.val() || {});
+      }
+    : nextRound;
   document.getElementById('hostStatus').innerHTML =
     `<strong style="color:var(--orange)">Vastaukset paljastettu!</strong>`;
 }
@@ -1838,6 +1867,13 @@ function listenAsPlayerLobby() {
 function listenAsSpectator() {
   unsubscribes.forEach(u => u());
   unsubscribes = [];
+
+  // Kasvata katselijalaskuria
+  get(gameRef).then(snap => {
+    const current = snap.val()?.spectatorCount || 0;
+    update(gameRef, { spectatorCount: current + 1 });
+  });
+
   const unsub = onValue(gameRef, (snap) => {
     const data = snap.val();
     if (!data) return;
@@ -2011,27 +2047,113 @@ function showPlayerResults(answers, players) {
       </div>
     `;
   }).join('');
+
+  // Peukutusnapit — vain muiden vastaukset
+  const otherGroups = Object.entries(groups).filter(([, g]) => !g.playerIds.includes(myId));
+  const likingArea = document.getElementById('likingArea');
+  if (otherGroups.length > 0) {
+    likingArea.style.display = 'block';
+    document.getElementById('likingButtons').innerHTML = otherGroups.map(([key, g]) => {
+      const names = g.playerIds.map(pid => players[pid]?.name || '?').join(' & ');
+      return `
+        <button class="btn btn-ghost" id="likeBtn_${key}"
+          onclick="submitLike('${key}', '${g.original.replace(/'/g,"\\'")}', this)"
+          style="text-align:left; font-size:0.95rem; padding:12px 16px; border-radius:12px;">
+          👍 ${g.original}
+          <span style="color:var(--text-muted); font-size:0.78rem; margin-left:6px;">${names}</span>
+        </button>
+      `;
+    }).join('');
+  } else {
+    likingArea.style.display = 'none';
+  }
 }
+
+window.submitLike = async function(answerKey, answerText, btn) {
+  // Lukitse kaikki napit heti
+  document.querySelectorAll('#likingButtons button').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = '0.4';
+  });
+  btn.style.opacity = '1';
+  btn.style.borderColor = 'var(--orange)';
+  btn.style.color = 'var(--orange)';
+
+  // Tallenna ääni Firebaseen: game/likes/{round}/{answerKey}/votes/{myId}
+  const roundSnap = await get(ref(db, 'game/round'));
+  const roundNum = roundSnap.val() || 1;
+  await set(ref(db, `game/likes/${roundNum}/${answerKey}`), {
+    answer: answerText
+  });
+  await set(ref(db, `game/likes/${roundNum}/${answerKey}/votes/${myId}`), true);
+};
 
 // ===================== WINNER =====================
 async function showWinner(scores) {
-  // Aseta winner-phase Firebaseen jotta pelaajatkin siirtyvät voittajaruudulle
   if (isHost) {
     await update(gameRef, { phase: 'winner' });
   }
 
   const sorted = Object.entries(scores).sort((a,b) => (b[1].score||0) - (a[1].score||0));
-  const winner = sorted[0];
+  const topScore = sorted[0]?.[1]?.score || 0;
+  const winners = sorted.filter(([,p]) => (p.score||0) === topScore);
 
-  document.getElementById('winnerName').textContent =
-    `${winner[1].name} keräsi ${winner[1].score} pistettä!`;
+  // Otsikko: yksi tai useampi voittaja
+  const winnerTitleEl = document.getElementById('winnerTitle');
+  if (winnerTitleEl) winnerTitleEl.textContent = winners.length > 1 ? 'Voittajat! 🎉' : 'Voittaja!';
 
-  document.getElementById('finalScores').innerHTML = sorted.map(([,p], i) => `
-    <div class="final-score-row">
-      <span>${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '} ${p.name}</span>
-      <span style="font-family:'Righteous',cursive; color:var(--orange)">${p.score || 0}p</span>
-    </div>
-  `).join('');
+  document.getElementById('winnerName').textContent = winners.length > 1
+    ? `${winners.map(([,p]) => p.name).join(' & ')} — kaikki ${topScore} pistettä!`
+    : `${winners[0][1].name} keräsi ${topScore} pistettä!`;
+
+  // Lopullinen pistetaulukko mitalien kanssa (tasatilanteet saavat saman mitalin)
+  let rankCounter = 0;
+  let prevScore = null;
+  let currentRankMedal = '';
+  document.getElementById('finalScores').innerHTML = sorted.map(([,p]) => {
+    const score = p.score || 0;
+    if (score !== prevScore) {
+      rankCounter++;
+      prevScore = score;
+      currentRankMedal = rankCounter === 1 ? '🥇' : rankCounter === 2 ? '🥈' : rankCounter === 3 ? '🥉' : `${rankCounter}.`;
+    }
+    return `
+      <div class="final-score-row">
+        <span>${currentRankMedal} ${p.name}</span>
+        <span style="font-family:'Righteous',cursive; color:var(--orange)">${score}p</span>
+      </div>
+    `;
+  }).join('');
+
+  // Peukutustaulukko
+  const likesSnap = await get(ref(db, 'game/likes'));
+  const likesData = likesSnap.val() || {};
+  const likeTotals = {};
+  Object.values(likesData).forEach(roundLikes => {
+    Object.entries(roundLikes).forEach(([key, data]) => {
+      if (!data.votes) return;
+      const count = Object.keys(data.votes).length;
+      if (!likeTotals[key]) likeTotals[key] = { answer: data.answer || key, count: 0 };
+      likeTotals[key].count += count;
+    });
+  });
+
+  const likesSorted = Object.entries(likeTotals).sort((a,b) => b[1].count - a[1].count);
+  const likesSection = document.getElementById('likesSection');
+  if (likesSorted.length > 0) {
+    likesSection.style.display = 'block';
+    document.getElementById('likesScoreboard').innerHTML = likesSorted.map(([, d], i) => `
+      <div style="
+        display:flex; justify-content:space-between; align-items:center;
+        background:var(--bg2); border-radius:10px; padding:10px 14px; font-size:0.9rem;
+      ">
+        <span>${i === 0 ? '🌟' : i === 1 ? '⭐' : '  '} <strong>${d.answer}</strong></span>
+        <span style="font-family:'Righteous',cursive; color:var(--orange)">👍 ${d.count}</span>
+      </div>
+    `).join('');
+  } else {
+    likesSection.style.display = 'none';
+  }
 
   showScreen('winnerScreen');
 }
