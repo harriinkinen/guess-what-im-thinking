@@ -849,7 +849,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v2.0 · 24.4.2026 21:47</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v2.2 · 24.4.2026 21:47</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -1057,7 +1057,10 @@
 <!-- PLAYER SCREEN -->
 <div class="screen" id="playerScreen">
   <div class="player-header">
-    <h1 id="playerTitle">Arvaa!</h1>
+    <div>
+      <h1 id="playerTitle">Arvaa!</h1>
+      <div id="playerNameDisplay" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
+    </div>
     <div style="display:flex; align-items:center; gap:10px;">
       <div class="player-score-badge">⭐ <span id="myScore">0</span> <span id="pointsLabel">pistettä</span></div>
       <button class="btn-remove" onclick="confirmLeave()" title="Poistu pelistä" style="font-size:1.1rem; padding:4px 8px;">🚪</button>
@@ -1776,16 +1779,12 @@ window.joinGame = async function() {
   const phase = data?.phase;
 
   if (!data || phase === 'inactive') {
-    // Rekisteröidy ja näytä "ei peliä"
     await update(ref(db, `game/scores/${myId}`), { name, score: 0 });
-    showScreen('playerScreen');
-    applyLang();
-    listenAsPlayer();
+    showPlayerScreen();
     return;
   }
 
   if (phase === 'lobby') {
-    // Liity odotusaulaan
     await update(ref(db, `game/scores/${myId}`), { name, score: 0 });
     showScreen('playerLobbyScreen');
     applyPlayerLobbyLang();
@@ -1793,20 +1792,23 @@ window.joinGame = async function() {
     return;
   }
 
-  // Peli on jo käynnissä — tarkista onko lukittu pelaaja
   const locked = data.lockedPlayers || [];
   if (locked.includes(myId)) {
-    // Lukittu pelaaja palaa peliin
-    showScreen('playerScreen');
-    applyLang();
-    listenAsPlayer();
+    showPlayerScreen();
   } else {
-    // Myöhään tullut — spectator
     showScreen('spectatorScreen');
     applySpectatorLang();
     listenAsSpectator();
   }
 };
+
+function showPlayerScreen() {
+  showScreen('playerScreen');
+  applyLang();
+  const nd = document.getElementById('playerNameDisplay');
+  if (nd) nd.textContent = myName ? `👤 ${myName}` : '';
+  listenAsPlayer();
+}
 
 function applyPlayerLobbyLang() {
   const t = T[myLang];
@@ -1849,9 +1851,7 @@ function listenAsPlayerLobby() {
       unsubscribes.forEach(u => u());
       unsubscribes = [];
       if (locked.includes(myId)) {
-        showScreen('playerScreen');
-        applyLang();
-        listenAsPlayer();
+        showPlayerScreen();
       } else {
         showScreen('spectatorScreen');
         applySpectatorLang();
@@ -1929,6 +1929,17 @@ function listenAsPlayer() {
       return;
     }
 
+    // Tarkista onko pelaaja poistettu → muutu katsojaksi
+    const removed = data.removedPlayers || {};
+    if (removed[myId]) {
+      unsubscribes.forEach(u => u());
+      unsubscribes = [];
+      showScreen('spectatorScreen');
+      applySpectatorLang();
+      listenAsSpectator();
+      return;
+    }
+
     document.getElementById('noGameArea').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
 
@@ -1969,6 +1980,11 @@ function listenAsPlayer() {
         if (btn) btn.disabled = false;
       }
     } else if (phase === 'revealed') {
+      // Jos pelaaja oli kirjoittanut mutta ei lähettänyt — tallenna automaattisesti
+      const input = document.getElementById('playerAnswerInput');
+      if (!hasAnswered && input && input.value.trim()) {
+        await set(ref(db, `game/answers/${myId}`), input.value.trim());
+      }
       document.getElementById('playerInputArea').style.display = 'none';
       document.getElementById('playerWaiting').style.display = 'none';
       document.getElementById('playerResults').style.display = 'block';
@@ -2071,20 +2087,32 @@ function showPlayerResults(answers, players) {
 }
 
 window.submitLike = async function(answerKey, answerText, btn) {
-  // Lukitse kaikki napit heti
-  document.querySelectorAll('#likingButtons button').forEach(b => {
-    b.disabled = true;
-    b.style.opacity = '0.4';
-  });
-  btn.style.opacity = '1';
+  // Disabloi vain tämä nappi, muut jäävät aktiivisiksi
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
   btn.style.borderColor = 'var(--orange)';
   btn.style.color = 'var(--orange)';
+  btn.innerHTML = `👍 ${answerText} ✓`;
 
-  // Tallenna ääni Firebaseen: game/likes/{round}/{answerKey}/votes/{myId}
   const roundSnap = await get(ref(db, 'game/round'));
   const roundNum = roundSnap.val() || 1;
+
+  const answersSnap = await get(ref(db, 'game/answers'));
+  const scoresSnap = await get(ref(db, 'game/scores'));
+  const answers = answersSnap.val() || {};
+  const scores = scoresSnap.val() || {};
+
+  const likedPlayerIds = Object.entries(answers)
+    .filter(([, ans]) => ans.toLowerCase().trim() === answerKey)
+    .map(([pid]) => pid);
+
+  const likedPlayerNames = likedPlayerIds.map(pid => scores[pid]?.name || '?');
+
   await set(ref(db, `game/likes/${roundNum}/${answerKey}`), {
-    answer: answerText
+    answer: answerText,
+    playerIds: likedPlayerIds,
+    playerNames: likedPlayerNames,
+    votes: { [myId]: true }
   });
   await set(ref(db, `game/likes/${roundNum}/${answerKey}/votes/${myId}`), true);
 };
@@ -2126,30 +2154,34 @@ async function showWinner(scores) {
     `;
   }).join('');
 
-  // Peukutustaulukko
+  // Peukutustaulukko pelaajittain
   const likesSnap = await get(ref(db, 'game/likes'));
   const likesData = likesSnap.val() || {};
-  const likeTotals = {};
+  const playerLikeTotals = {}; // { playerId: { name, count } }
+
   Object.values(likesData).forEach(roundLikes => {
-    Object.entries(roundLikes).forEach(([key, data]) => {
-      if (!data.votes) return;
-      const count = Object.keys(data.votes).length;
-      if (!likeTotals[key]) likeTotals[key] = { answer: data.answer || key, count: 0 };
-      likeTotals[key].count += count;
+    Object.values(roundLikes).forEach(data => {
+      if (!data.votes || !data.playerIds) return;
+      const voteCount = Object.keys(data.votes).length;
+      data.playerIds.forEach((pid, i) => {
+        const pname = data.playerNames?.[i] || pid;
+        if (!playerLikeTotals[pid]) playerLikeTotals[pid] = { name: pname, count: 0 };
+        playerLikeTotals[pid].count += voteCount;
+      });
     });
   });
 
-  const likesSorted = Object.entries(likeTotals).sort((a,b) => b[1].count - a[1].count);
+  const likesSorted = Object.entries(playerLikeTotals).sort((a,b) => b[1].count - a[1].count);
   const likesSection = document.getElementById('likesSection');
   if (likesSorted.length > 0) {
     likesSection.style.display = 'block';
-    document.getElementById('likesScoreboard').innerHTML = likesSorted.map(([, d], i) => `
+    document.getElementById('likesScoreboard').innerHTML = likesSorted.map(([, p], i) => `
       <div style="
         display:flex; justify-content:space-between; align-items:center;
         background:var(--bg2); border-radius:10px; padding:10px 14px; font-size:0.9rem;
       ">
-        <span>${i === 0 ? '🌟' : i === 1 ? '⭐' : '  '} <strong>${d.answer}</strong></span>
-        <span style="font-family:'Righteous',cursive; color:var(--orange)">👍 ${d.count}</span>
+        <span>${i === 0 ? '🌟' : i === 1 ? '⭐' : '  '} <strong>${p.name}</strong></span>
+        <span style="font-family:'Righteous',cursive; color:var(--orange)">👍 ${p.count}</span>
       </div>
     `).join('');
   } else {
@@ -2187,6 +2219,8 @@ window.confirmReset = function() {
 window.removePlayer = async function(playerId) {
   await remove(ref(db, `game/scores/${playerId}`));
   await remove(ref(db, `game/answers/${playerId}`));
+  // Merkitse poistetuksi jotta pelaaja muuttuu katsojaksi
+  await set(ref(db, `game/removedPlayers/${playerId}`), true);
   showNotification('Pelaaja poistettu');
 };
 
