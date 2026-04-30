@@ -282,6 +282,11 @@
     box-shadow: 0 0 16px rgba(245,166,35,0.3);
   }
 
+  .answer-chip:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.15);
+  }
+
   @keyframes popIn {
     0% { transform: scale(0.8); opacity: 0; }
     70% { transform: scale(1.08); }
@@ -853,7 +858,7 @@
   <div class="game-logo">
     <h1>Arvaa, mitä<br>ajattelen!</h1>
     <p>Seurapeli juhliin</p>
-    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v2.7 · 25.4.2026</p>
+    <p style="margin-top:8px; font-size:0.75rem; color:var(--bg3); color:#444e6a;">v3.3 · 30.4.2026</p>
   </div>
   <div class="mode-cards">
     <div class="mode-card host" onclick="enterHost()">
@@ -1020,12 +1025,6 @@
         </button>
       </div>
 
-      <!-- Kokonaisranking -->
-      <div style="width:100%; max-width:600px; margin-top:8px;">
-        <div class="sidebar-title" style="margin-bottom:10px;">Kokonaisranking</div>
-        <div id="hostRanking" style="display:flex; flex-direction:column; gap:6px;"></div>
-      </div>
-
       <!-- Resetoi pois tieltä alaosaan -->
       <div style="margin-top:20px;">
         <button class="btn btn-ghost" onclick="confirmReset()" style="font-size:0.78rem; padding:7px 14px; opacity:0.5;">
@@ -1139,15 +1138,13 @@
     <div class="winner-emoji">🏆</div>
     <h1 id="winnerTitle">Voittaja!</h1>
     <p class="winner-name" id="winnerName"></p>
-    <div style="display:flex; gap:16px; width:100%; align-items:flex-start; flex-wrap:wrap;">
-      <div style="flex:1; min-width:140px;">
-        <div style="font-family:'Righteous',cursive; font-size:0.85rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">🏆 Pisteet</div>
-        <div class="final-scores" id="finalScores"></div>
-      </div>
-      <div id="likesSection" style="display:none; flex:1; min-width:140px;">
-        <div style="font-family:'Righteous',cursive; font-size:0.85rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">👍 Hauskimmat</div>
-        <div id="likesScoreboard" style="display:flex; flex-direction:column; gap:6px;"></div>
-      </div>
+    <div style="width:100%;">
+      <div style="font-family:'Righteous',cursive; font-size:0.85rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">🏆 Pisteet</div>
+      <div class="final-scores" id="finalScores"></div>
+    </div>
+    <div id="likesSection" style="display:none; width:100%; margin-top:16px;">
+      <div style="font-family:'Righteous',cursive; font-size:0.85rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">👍 Tykätyimmät</div>
+      <div id="likesScoreboard" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
     <button class="btn btn-orange" onclick="resetGame()" style="margin-top:20px;">Pelaa uudelleen</button>
   </div>
@@ -1374,11 +1371,16 @@ function tryAutoInit() {
   initFirebase(FIREBASE_CONFIG, true);
 }
 
-// Wait for DOM + scripts to be ready before init
-setTimeout(() => {
-  tryAutoInit();
-  handleUrlParams();
-}, 100);
+// Odotetaan että Firebase compat -kirjastot ovat latautuneet
+function waitForFirebase() {
+  if (typeof firebase !== 'undefined' && firebase.app) {
+    tryAutoInit();
+    handleUrlParams();
+  } else {
+    setTimeout(waitForFirebase, 50);
+  }
+}
+waitForFirebase();
 
 // ===================== URL PARAMS =====================
 // ?host avaa suoraan host-näkymän, muuten pelaajan nimi-näkymä
@@ -1708,24 +1710,7 @@ function listenToGame() {
       roundStatus.innerHTML = '';
     }
 
-    // Kokonaisranking
-    const ranking = document.getElementById('hostRanking');
-    ranking.innerHTML = playerEntries
-      .sort((a,b) => (b[1].score||0) - (a[1].score||0))
-      .map(([id, p], i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
-        return `
-          <div style="
-            display:flex; justify-content:space-between; align-items:center;
-            background:var(--bg2); border-radius:10px; padding:8px 14px; font-size:0.9rem;
-          ">
-            <span>${medal} <strong>${p.name}</strong></span>
-            <span style="font-family:'Righteous',cursive; color:var(--orange)">${p.score || 0}p</span>
-          </div>
-        `;
-      }).join('');
-
-    // Sivupalkin pelaajalistaus (poisto-napit)
+    // Sivupalkin pelaajalistaus (poisto-napit, pisteiden mukaan)
     const playerList = document.getElementById('hostPlayerList');
     if (playerEntries.length === 0) {
       playerList.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem">Ei vielä pelaajia...</p>';
@@ -1760,46 +1745,53 @@ function listenToGame() {
 
 function showRevealedAnswers(answers, players) {
   const grid = document.getElementById('answersGrid');
-  if (grid.dataset.round === String(currentRound) && grid.innerHTML !== '') return; // ei renderöidä uudelleen
+  if (grid.dataset.round === String(currentRound) && grid.innerHTML !== '') return;
   grid.dataset.round = currentRound;
 
-  // Group by answer (normalized)
+  // Ryhmittele vastauksittain jotta tiedetään mitkä täsmäävät
   const groups = {};
   Object.entries(answers).forEach(([pid, ans]) => {
     const key = ans.toLowerCase().trim();
-    if (!groups[key]) groups[key] = { original: ans, playerIds: [], playerNames: [] };
-    groups[key].playerIds.push(pid);
-    groups[key].playerNames.push(players[pid]?.name || 'Tuntematon');
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(pid);
   });
 
-  grid.innerHTML = Object.entries(groups).map(([key, g], i) => {
-    const isMatch = g.playerIds.length > 1;
-    return `
-      <div class="answer-chip revealed ${isMatch ? 'match' : ''}"
-           style="animation-delay: ${i * 0.08}s">
-        <span class="answer-player-name">${g.playerNames.join(' & ')}</span>
-        ${g.original}
-        ${isMatch ? '<span style="margin-left:6px">🎯</span>' : ''}
-      </div>
-    `;
-  }).join('');
-
-  // Laske pisteet vain kerran (tarkista ettei jo laskettu)
+  // Laske automaattiset pisteet täsmäävistä vastauksista
   if (!grid.dataset.scored) {
     grid.dataset.scored = '1';
     const updates = {};
-    Object.entries(groups).forEach(([key, g]) => {
-      if (g.playerIds.length > 1) {
-        g.playerIds.forEach(pid => {
-          const currentScore = players[pid]?.score || 0;
-          updates[`scores/${pid}/score`] = currentScore + 1;
+    Object.entries(groups).forEach(([key, pids]) => {
+      if (pids.length > 1) {
+        pids.forEach(pid => {
+          const current = players[pid]?.score || 0;
+          updates[`scores/${pid}/score`] = current + 1;
         });
       }
     });
-    if (Object.keys(updates).length > 0) {
-      update(gameRef, updates);
-    }
+    if (Object.keys(updates).length > 0) update(gameRef, updates);
   }
+
+  // Näytä jokainen vastaus erikseen omana kuplana
+  const entries = Object.entries(answers);
+  grid.innerHTML = entries.map(([pid, ans], i) => {
+    const key = ans.toLowerCase().trim();
+    const isAutoMatch = groups[key].length > 1;
+    const playerName = players[pid]?.name || 'Tuntematon';
+    const safeId = encodeURIComponent(pid);
+    return `
+      <div class="answer-chip revealed ${isAutoMatch ? 'match' : ''}"
+           id="chip_${safeId}"
+           data-pid="${pid}"
+           data-automatch="${isAutoMatch}"
+           style="animation-delay: ${i * 0.08}s; cursor:pointer; transition: all 0.2s;"
+           onclick="hostToggleAnswer(this)"
+           title="Klikkaa merkitäksesi oikeaksi tai vääräksi">
+        <span class="answer-player-name">${playerName}</span>
+        ${ans}
+        <span class="chip-icon" style="margin-left:6px">${isAutoMatch ? '🎯' : '⬜'}</span>
+      </div>
+    `;
+  }).join('');
 
   document.getElementById('nextRoundBtn').style.display = 'inline-block';
   const isLastRound = currentRound >= (totalRounds || 10);
@@ -1811,8 +1803,52 @@ function showRevealedAnswers(answers, players) {
       }
     : nextRound;
   document.getElementById('hostStatus').innerHTML =
-    `<strong style="color:var(--orange)">Vastaukset paljastettu!</strong>`;
+    `<strong style="color:var(--orange)">Vastaukset paljastettu!</strong> <span style="color:var(--text-muted); font-size:0.8rem;">Klikkaa korjataksesi pisteytystä</span>`;
 }
+
+window.hostToggleAnswer = async function(chip) {
+  const pid = chip.dataset.pid;
+  if (!pid) return;
+
+  const snap = await get(ref(db, 'game/scores'));
+  const scores = snap.val() || {};
+
+  const isCurrentlyMarked = chip.classList.contains('match');
+  const icon = chip.querySelector('.chip-icon');
+
+  if (isCurrentlyMarked) {
+    chip.classList.remove('match');
+    chip.style.opacity = '0.5';
+    if (icon) icon.textContent = '❌';
+    const current = scores[pid]?.score || 0;
+    if (current > 0) await update(gameRef, { [`scores/${pid}/score`]: current - 1 });
+    showNotification('Piste poistettu');
+  } else {
+    chip.classList.add('match');
+    chip.style.opacity = '1';
+    if (icon) icon.textContent = '✅';
+    const current = scores[pid]?.score || 0;
+    await update(gameRef, { [`scores/${pid}/score`]: current + 1 });
+    showNotification('Piste lisätty ✓');
+  }
+
+  // Päivitä pelaajalistaus tuoreilla pisteillä
+  const freshSnap = await get(ref(db, 'game/scores'));
+  const freshScores = freshSnap.val() || {};
+  const playerList = document.getElementById('hostPlayerList');
+  if (playerList) {
+    const sorted = Object.entries(freshScores).sort((a,b) => (b[1].score||0) - (a[1].score||0));
+    playerList.innerHTML = sorted.map(([id, p]) => `
+      <div class="player-row">
+        <span class="player-name-text">${p.name}</span>
+        <span style="display:flex; align-items:center; gap:6px;">
+          <span class="player-score">${p.score || 0}p</span>
+          <button class="btn-remove" onclick="removePlayer('${id}')" title="Poista pelaaja">✕</button>
+        </span>
+      </div>
+    `).join('');
+  }
+};
 
 // ===================== PLAYER =====================
 window.enterPlayer = function() {
